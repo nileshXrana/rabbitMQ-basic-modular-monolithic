@@ -17,8 +17,10 @@ services:
       - .env
 
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   postgres:
     image: postgres:17
@@ -32,6 +34,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rmq_modular_monolith"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4
@@ -43,7 +50,8 @@ services:
       - "5050:80"
 
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -54,7 +62,12 @@ services:
 
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-      
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   backend_node_modules:
