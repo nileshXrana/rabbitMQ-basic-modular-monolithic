@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 
+const migrationModule = process.env.MIGRATION_MODULE;
+
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
 
@@ -12,7 +14,11 @@ export const dataSourceOptions: DataSourceOptions = {
 
   entities: ['dist/modules/**/database/entities/*.{ts,js}'],
 
-  migrations: ['dist/modules/**/database/migrations/*.{ts,js}'],
+  // migrations: ['dist/modules/**/database/migrations/*.{ts,js}'],
+
+  migrations: migrationModule
+    ? [`dist/modules/${migrationModule}/database/migrations/*.{ts,js}`]
+    : ['dist/modules/**/database/migrations/*.{ts,js}'],
 
   synchronize: false,
 };

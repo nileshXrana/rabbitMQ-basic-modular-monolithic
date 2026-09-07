@@ -11,17 +11,15 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    private readonly rabbitMQService: RabbitMQService
+    private readonly rabbitMQService: RabbitMQService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto) {
-
     // save the order to the database
     const order = new Order();
     order.user_id = createOrderDto.userId;
     order.amount = createOrderDto.amount;
     await this.orderRepository.save(order);
-
 
     // publish the order to RabbitMQ
     const channel = this.rabbitMQService.getChannel();
@@ -37,7 +35,6 @@ export class OrdersService {
 
     await channel.waitForConfirms();
     console.log('Message confirmed by RabbitMQ to Publisher');
-
 
     // return response to client
     return {
