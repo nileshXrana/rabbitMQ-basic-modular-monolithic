@@ -17,13 +17,9 @@ export class OrdersService {
   async onModuleInit() {
     const channel = this.rabbitMQService.getChannel();
 
-    await channel.assertExchange(
-      'order.exchange',
-      'direct',
-      {
-        durable: true,
-      },
-    );
+    await channel.assertExchange('order.exchange', 'direct', {
+      durable: true,
+    });
   }
 
   async create(createOrderDto: CreateOrderDto) {

@@ -1,5 +1,11 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Channel, ChannelModel, ConfirmChannel, Connection, connect } from 'amqplib';
+import {
+  Channel,
+  ChannelModel,
+  ConfirmChannel,
+  Connection,
+  connect,
+} from 'amqplib';
 
 @Injectable()
 export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
@@ -29,4 +35,3 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     await this.connection?.close();
   }
 }
-
