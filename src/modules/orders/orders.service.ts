@@ -4,7 +4,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './database/entities/order.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { RabbitMQService } from './rmq/rmq.producer';
+import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
 
 @Injectable()
 export class OrdersService {
@@ -14,6 +14,18 @@ export class OrdersService {
     private readonly rabbitMQService: RabbitMQService,
   ) {}
 
+  async onModuleInit() {
+    const channel = this.rabbitMQService.getChannel();
+
+    await channel.assertExchange(
+      'order.exchange',
+      'direct',
+      {
+        durable: true,
+      },
+    );
+  }
+
   async create(createOrderDto: CreateOrderDto) {
     // save the order to the database
     const order = new Order();
@@ -22,7 +34,7 @@ export class OrdersService {
     await this.orderRepository.save(order);
 
     // publish the order to RabbitMQ
-    const channel = this.rabbitMQService.getChannel();
+    const channel = this.rabbitMQService.getConfirmChannel();
 
     channel.publish(
       'order.exchange', // exchange name

@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "typeorm": "ts-node ./node_modules/typeorm/cli",
-    "migration:run": "typeorm-ts-node-esm migration:run -d src/database/data-source.ts",
+    "migration:run": "typeorm-ts-node-esm migration:run -d src/infrastructure/database/data-source.ts",
     "migration:orders": "MIGRATION_MODULE=orders npm run migration:run",
     "migration:notifications": "MIGRATION_MODULE=notifications npm run migration:run",
     "build": "nest build",

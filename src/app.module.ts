@@ -5,7 +5,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { dataSourceOptions } from './database/data-source';
+import { dataSourceOptions } from './infrastructure/database/data-source';
 
 @Module({
   imports: [
