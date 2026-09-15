@@ -19,13 +19,6 @@ export class Inbox {
   @Column({ type: 'jsonb', nullable: false })
   payload: object;
 
-  @Column({
-    type: 'enum',
-    enum: InboxStatus,
-    default: InboxStatus.PENDING,
-  })
-  status: InboxStatus;
-
   @CreateDateColumn()
   received_at: Date;
 }

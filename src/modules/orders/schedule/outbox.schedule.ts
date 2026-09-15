@@ -6,7 +6,7 @@ import { Outbox, OutboxStatus } from '../database/entities/outbox.entity';
 import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
 
 @Injectable()
-export class OutboxProcessor {
+export class OutboxService {
   constructor(
     @InjectRepository(Outbox)
     private readonly outboxRepository: Repository<Outbox>,
@@ -34,8 +34,8 @@ export class OutboxProcessor {
     for (const event of events) {
       try {
         channel.publish(
-          'shipment.exchange',
-          'shipment.created',
+          'order.exchange',
+          'order.created',
           Buffer.from(JSON.stringify(event.payload)),
           {
             persistent: true,

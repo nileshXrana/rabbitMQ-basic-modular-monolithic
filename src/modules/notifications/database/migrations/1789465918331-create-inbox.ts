@@ -25,12 +25,6 @@ export class CreateInbox1789465918331 implements MigrationInterface {
             isNullable: false,
           },
           {
-            name: 'status',
-            type: 'enum',
-            enum: ['pending', 'processed'],
-            default: `'pending'`,
-          },
-          {
             name: 'received_at',
             type: 'timestamp with time zone',
             default: 'CURRENT_TIMESTAMP',
