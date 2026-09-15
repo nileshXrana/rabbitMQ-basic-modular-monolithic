@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 
 @Entity({
-  schema: 'notifications',
+  schema: 'notifications_schema',
   name: 'notifications',
 })
 export class Notification {

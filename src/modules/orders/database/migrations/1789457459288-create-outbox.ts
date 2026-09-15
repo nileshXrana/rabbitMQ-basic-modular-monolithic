@@ -1,13 +1,11 @@
 import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 
-export class CreateNotification1788501951613 implements MigrationInterface {
+export class CreateOutbox1789457459288 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.createSchema('notifications_schema', true);
-
     await queryRunner.createTable(
       new Table({
-        schema: 'notifications_schema',
-        name: 'notifications',
+        schema: 'orders_schema',
+        name: 'outbox',
         columns: [
           {
             name: 'id',
@@ -17,14 +15,21 @@ export class CreateNotification1788501951613 implements MigrationInterface {
             default: 'gen_random_uuid()',
           },
           {
-            name: 'order_id',
-            type: 'uuid',
+            name: 'event_type',
+            type: 'varchar',
+            length: '255',
             isNullable: false,
           },
           {
-            name: 'type',
-            type: 'varchar',
+            name: 'payload',
+            type: 'jsonb',
             isNullable: false,
+          },
+          {
+            name: 'status',
+            type: 'enum',
+            enum: ['pending', 'processed'],
+            default: `'pending'`,
           },
           {
             name: 'created_at',
@@ -39,11 +44,9 @@ export class CreateNotification1788501951613 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.dropTable(
       new Table({
-        schema: 'notifications_schema',
-        name: 'notifications',
+        schema: 'orders_schema',
+        name: 'outbox',
       }),
     );
-
-    await queryRunner.dropSchema('notifications_schema', true);
   }
 }

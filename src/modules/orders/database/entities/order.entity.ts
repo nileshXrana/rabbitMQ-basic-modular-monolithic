@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 
 @Entity({
-  schema: 'orders',
+  schema: 'orders_schema',
   name: 'orders',
 })
 export class Order {

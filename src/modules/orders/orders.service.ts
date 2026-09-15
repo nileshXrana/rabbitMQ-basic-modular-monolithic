@@ -2,20 +2,25 @@ import { Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './database/entities/order.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
+import { Outbox } from './database/entities/outbox.entity';
 
 @Injectable()
 export class OrdersService {
   constructor(
+    private readonly dataSource: DataSource,
+    private readonly rabbitMQService: RabbitMQService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    private readonly rabbitMQService: RabbitMQService,
+    @InjectRepository(Outbox)
+    private readonly outboxRepository: Repository<Outbox>,
   ) {}
 
+  // rabbitMQ exchange setup
   async onModuleInit() {
-    const channel = this.rabbitMQService.getChannel();
+    const channel = this.rabbitMQService.getConfirmChannel();
 
     await channel.assertExchange('order.exchange', 'direct', {
       durable: true,
@@ -24,25 +29,25 @@ export class OrdersService {
 
   async create(createOrderDto: CreateOrderDto) {
     // save the order to the database
-    const order = new Order();
-    order.user_id = createOrderDto.userId;
-    order.amount = createOrderDto.amount;
-    await this.orderRepository.save(order);
+    const order = await this.dataSource.transaction(async (manager) => {
+      // Create and save order
+      const order = manager.create(Order, {
+        user_id: createOrderDto.userId,
+        amount: createOrderDto.amount,
+      });
 
-    // publish the order to RabbitMQ
-    const channel = this.rabbitMQService.getConfirmChannel();
+      await manager.save(order);
 
-    channel.publish(
-      'order.exchange', // exchange name
-      'order.created', // routing key
-      Buffer.from(JSON.stringify(order)),
-      {
-        persistent: true,
-      },
-    );
+      // Create outbox event
+      const outboxEvent = manager.create(Outbox, {
+        event_type: 'order.created',
+        payload: order,
+      });
 
-    await channel.waitForConfirms();
-    console.log('Message confirmed by RabbitMQ to Publisher');
+      await manager.save(outboxEvent);
+
+      return order;
+    });
 
     // return response to client
     return {

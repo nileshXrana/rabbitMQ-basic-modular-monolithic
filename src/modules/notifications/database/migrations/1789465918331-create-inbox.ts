@@ -1,33 +1,37 @@
 import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 
-export class CreateNotification1788501951613 implements MigrationInterface {
+export class CreateInbox1789465918331 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.createSchema('notifications_schema', true);
-
     await queryRunner.createTable(
       new Table({
         schema: 'notifications_schema',
-        name: 'notifications',
+        name: 'inbox',
         columns: [
           {
             name: 'id',
             type: 'uuid',
             isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'gen_random_uuid()',
-          },
-          {
-            name: 'order_id',
-            type: 'uuid',
             isNullable: false,
           },
           {
-            name: 'type',
+            name: 'event_type',
             type: 'varchar',
+            length: '255',
             isNullable: false,
           },
           {
-            name: 'created_at',
+            name: 'payload',
+            type: 'jsonb',
+            isNullable: false,
+          },
+          {
+            name: 'status',
+            type: 'enum',
+            enum: ['pending', 'processed'],
+            default: `'pending'`,
+          },
+          {
+            name: 'received_at',
             type: 'timestamp with time zone',
             default: 'CURRENT_TIMESTAMP',
           },
@@ -40,10 +44,8 @@ export class CreateNotification1788501951613 implements MigrationInterface {
     await queryRunner.dropTable(
       new Table({
         schema: 'notifications_schema',
-        name: 'notifications',
+        name: 'inbox',
       }),
     );
-
-    await queryRunner.dropSchema('notifications_schema', true);
   }
 }

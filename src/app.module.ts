@@ -6,9 +6,11 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { dataSourceOptions } from './infrastructure/database/data-source';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot(dataSourceOptions),
     ConfigModule.forRoot({
       envFilePath: '.env',

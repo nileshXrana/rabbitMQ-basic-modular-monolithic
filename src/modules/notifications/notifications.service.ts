@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Notification } from './database/entities/notification.entity';
 import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
+import { Inbox } from './database/entities/inbox.entity';
 
 @Injectable()
 export class NotificationsService {
   constructor(
-    @InjectRepository(Notification)
-    private readonly notificationRepository: Repository<Notification>,
+    private readonly dataSource: DataSource,
     private readonly rabbitMQService: RabbitMQService,
   ) {}
 
@@ -21,6 +21,8 @@ export class NotificationsService {
         'x-queue-type': 'quorum',
       },
     });
+
+    channel.prefetch(1);
 
     await channel.bindQueue(
       'notification_queue', // queue name
@@ -35,27 +37,56 @@ export class NotificationsService {
           return;
         }
 
-        const order = JSON.parse(message.content.toString());
+        try {
+          const order = JSON.parse(message.content.toString());
+          const messageId = message.properties.messageId;
 
-        console.log('Order received by Consumer:', order);
+          if (!messageId) {
+            console.error('Message received without messageId');
+            return;
+          }
 
-        // save order notification to the database
-        await this.saveOrderNotification(order.id);
+          const result = await this.dataSource.transaction(async (manager) => {
+            // check for duplicate message in inbox
+            const existingInbox = await manager.findOne(Inbox, {
+              where: { id: messageId },
+            });
 
-        channel.ack(message);
-        console.log('Acknowledged sent by consumer');
+            if (existingInbox) {
+              console.log(
+                `Duplicate message ${messageId}, skipping processing.`,
+              );
+              return false;
+            }
+
+            // save message to inbox
+            const inbox = manager.create(Inbox, {
+              id: messageId,
+              event_type: 'order.created',
+              payload: order,
+            });
+
+            await manager.save(inbox);
+
+            // Business operation
+            const notification = manager.create(Notification, {
+              order_id: order.id.toString(),
+              type: 'order_created_notification',
+            });
+
+            await manager.save(notification);
+
+            return true;
+          });
+
+          channel.ack(message);
+        } catch (error) {
+          console.error('Failed to process message:', error);
+        }
       },
       {
         noAck: false, // Enable manual acknowledgment
       },
     );
-  }
-
-  async saveOrderNotification(orderId: number) {
-    const notification = new Notification();
-    notification.order_id = orderId.toString();
-    notification.type = 'order_created_notification';
-    await this.notificationRepository.save(notification);
-    console.log('Order Notification saved to the database');
   }
 }
