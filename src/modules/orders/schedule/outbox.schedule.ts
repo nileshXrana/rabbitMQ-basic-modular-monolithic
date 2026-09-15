@@ -13,7 +13,7 @@ export class OutboxService {
     private readonly rabbitMQService: RabbitMQService,
   ) {}
 
-  @Cron('*/60 * * * * *') // every 60 seconds
+  @Cron('0 * * * * *') // Fires at second 0 of every minute
   async processOutbox() {
     const events = await this.outboxRepository.find({
       where: {
