@@ -55,8 +55,6 @@ export class OutboxService {
         event.status = OutboxStatus.PROCESSED;
 
         await this.outboxRepository.save(event);
-
-        console.log(`Published outbox event: ${event.id}`);
       } catch (error) {
         console.error(`Failed to publish outbox event: ${event.id}`, error);
       }

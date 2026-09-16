@@ -96,46 +96,49 @@ export class NotificationsService {
               },
             });
 
+            console.log('Message ID is missing, sent to DLQ.');
             channel.ack(message);
             return;
           }
 
-          const order = JSON.parse(message.content.toString());
+          throw new Error('custom error for testing !.');
 
-          const result = await this.dataSource.transaction(async (manager) => {
-            // check for duplicate message in inbox
-            const existingInbox = await manager.findOne(Inbox, {
-              where: { id: messageId },
-            });
+          // const order = JSON.parse(message.content.toString());
 
-            if (existingInbox) {
-              console.log(
-                `Duplicate message ${messageId}, skipping processing.`,
-              );
-              return false;
-            }
+          // const result = await this.dataSource.transaction(async (manager) => {
+          //   // check for duplicate message in inbox
+          //   const existingInbox = await manager.findOne(Inbox, {
+          //     where: { id: messageId },
+          //   });
 
-            // save message to inbox
-            const inbox = manager.create(Inbox, {
-              id: messageId,
-              event_type: 'order.created',
-              payload: order,
-            });
+          //   if (existingInbox) {
+          //     console.log(
+          //       `Duplicate message ${messageId}, skipping processing.`,
+          //     );
+          //     return false;
+          //   }
 
-            await manager.save(inbox);
+          //   // save message to inbox
+          //   const inbox = manager.create(Inbox, {
+          //     id: messageId,
+          //     event_type: 'order.created',
+          //     payload: order,
+          //   });
 
-            // Business operation
-            const notification = manager.create(Notification, {
-              order_id: order.id.toString(),
-              type: 'order_created_notification',
-            });
+          //   await manager.save(inbox);
 
-            await manager.save(notification);
+          //   // Business operation
+          //   const notification = manager.create(Notification, {
+          //     order_id: order.id.toString(),
+          //     type: 'order_created_notification',
+          //   });
 
-            return true;
-          });
+          //   await manager.save(notification);
 
-          channel.ack(message);
+          //   return true;
+          // });
+
+          // channel.ack(message);
         } catch (error) {
           const currentRetryCount = Number(
             message.properties.headers?.['x-retry-count'] ?? 0,
@@ -154,6 +157,9 @@ export class NotificationsService {
               },
             });
 
+            console.log(
+              `Message ${messageId} exceeded max retries, sent to DLQ.`,
+            );
             channel.ack(message);
             return;
           }
@@ -171,6 +177,9 @@ export class NotificationsService {
             },
           });
 
+          console.log(
+            `Message ${messageId} sent to retry queue with TTL ${ttl}ms. Retry count: ${nextRetryCount}. Error: ${error.message}`,
+          );
           channel.ack(message);
         }
       },
