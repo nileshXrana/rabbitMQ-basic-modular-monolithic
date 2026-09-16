@@ -22,9 +22,13 @@ export class OrdersService {
   async onModuleInit() {
     const channel = this.rabbitMQService.getConfirmChannel();
 
-    await channel.assertExchange('order.exchange', 'direct', {
-      durable: true,
-    });
+    await channel.assertExchange(
+      String(process.env.RABBITMQ_ORDERS_EXCHANGE),
+      'direct',
+      {
+        durable: true,
+      },
+    );
   }
 
   async create(createOrderDto: CreateOrderDto) {

@@ -34,8 +34,8 @@ export class OutboxService {
     for (const event of events) {
       try {
         channel.publish(
-          'order.exchange',
-          'order.created',
+          String(process.env.RABBITMQ_ORDERS_EXCHANGE),
+          String(process.env.RABBITMQ_ORDERS_ROUTING_KEY),
           Buffer.from(JSON.stringify(event.payload)),
           {
             persistent: true,

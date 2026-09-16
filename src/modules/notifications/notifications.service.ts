@@ -15,23 +15,26 @@ export class NotificationsService {
   async onModuleInit() {
     const channel = this.rabbitMQService.getChannel();
 
-    await channel.assertQueue('notification_queue', {
-      durable: true,
-      arguments: {
-        'x-queue-type': 'quorum',
+    await channel.assertQueue(
+      String(process.env.RABBITMQ_NOTIFICATIONS_QUEUE),
+      {
+        durable: true,
+        arguments: {
+          'x-queue-type': 'quorum',
+        },
       },
-    });
+    );
 
     channel.prefetch(1);
 
     await channel.bindQueue(
-      'notification_queue', // queue name
-      'order.exchange', // exchange name
-      'order.created', // binding key
+      String(process.env.RABBITMQ_NOTIFICATIONS_QUEUE), // queue name
+      String(process.env.RABBITMQ_ORDERS_EXCHANGE), // exchange name
+      String(process.env.RABBITMQ_ORDERS_ROUTING_KEY), // binding key
     );
 
     await channel.consume(
-      'notification_queue',
+      String(process.env.RABBITMQ_NOTIFICATIONS_QUEUE),
       async (message) => {
         if (!message) {
           return;
