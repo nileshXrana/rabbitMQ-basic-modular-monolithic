@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { Notification } from './database/entities/notification.entity';
 import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
 import { Inbox } from './database/entities/inbox.entity';
@@ -15,39 +14,93 @@ export class NotificationsService {
   async onModuleInit() {
     const channel = this.rabbitMQService.getChannel();
 
-    await channel.assertQueue(
-      String(process.env.RABBITMQ_NOTIFICATIONS_QUEUE),
-      {
-        durable: true,
-        arguments: {
-          'x-queue-type': 'quorum',
-        },
+    // env variables
+    const ordersExchange = process.env.RABBITMQ_ORDERS_EXCHANGE!;
+    const ordersRoutingKey = process.env.RABBITMQ_ORDERS_ROUTING_KEY!;
+    const notificationsQueue = process.env.RABBITMQ_NOTIFICATIONS_QUEUE!;
+    const retryExchange = process.env.RABBITMQ_NOTIFICATIONS_RETRY_EXCHANGE!;
+    const retryRoutingKey =
+      process.env.RABBITMQ_NOTIFICATIONS_RETRY_ROUTING_KEY!;
+    const retryQueue = process.env.RABBITMQ_NOTIFICATIONS_RETRY_QUEUE!;
+    const dlx = process.env.RABBITMQ_DLX!;
+    const dlxRoutingKey = process.env.RABBITMQ_DLX_ROUTING_KEY!;
+    const dlq = process.env.RABBITMQ_DLQ!;
+    const retryDelay = Number(process.env.RABBITMQ_RETRY_DELAY!);
+    const maxRetries = Number(process.env.RABBITMQ_MAX_RETRIES!);
+
+    // primary queue
+    await channel.assertQueue(notificationsQueue, {
+      durable: true,
+      arguments: {
+        'x-queue-type': 'quorum',
       },
+    });
+
+    await channel.bindQueue(
+      notificationsQueue, // queue name
+      ordersExchange, // exchange name
+      ordersRoutingKey, // binding key
     );
+
+    // retry queue
+    await channel.assertExchange(retryExchange, 'direct', {
+      durable: true,
+    });
+
+    await channel.assertQueue(retryQueue, {
+      durable: true,
+      arguments: {
+        'x-queue-type': 'quorum',
+        'x-dead-letter-exchange': ordersExchange,
+        'x-dead-letter-routing-key': ordersRoutingKey,
+      },
+    });
+
+    await channel.bindQueue(retryQueue, retryExchange, retryRoutingKey);
+
+    // dead letter queue
+    await channel.assertExchange(dlx, 'direct', {
+      durable: true,
+    });
+
+    await channel.assertQueue(dlq, {
+      durable: true,
+      arguments: {
+        'x-queue-type': 'quorum',
+      },
+    });
+
+    await channel.bindQueue(dlq, dlx, dlxRoutingKey);
 
     channel.prefetch(1);
 
-    await channel.bindQueue(
-      String(process.env.RABBITMQ_NOTIFICATIONS_QUEUE), // queue name
-      String(process.env.RABBITMQ_ORDERS_EXCHANGE), // exchange name
-      String(process.env.RABBITMQ_ORDERS_ROUTING_KEY), // binding key
-    );
-
     await channel.consume(
-      String(process.env.RABBITMQ_NOTIFICATIONS_QUEUE),
+      notificationsQueue,
       async (message) => {
         if (!message) {
           return;
         }
 
-        try {
-          const order = JSON.parse(message.content.toString());
-          const messageId = message.properties.messageId;
+        const messageId = message.properties.messageId;
 
+        try {
           if (!messageId) {
-            console.error('Message received without messageId');
+            // send directly to DLQ
+            channel.publish(dlx, dlxRoutingKey, message.content, {
+              ...message.properties,
+              persistent: true,
+              headers: {
+                ...(message.properties.headers ?? {}),
+                'x-retry-count': 0,
+                'x-final-failure': true,
+              },
+            });
+
+            channel.ack(message);
             return;
           }
+
+          const order = JSON.parse(message.content.toString());
 
           const result = await this.dataSource.transaction(async (manager) => {
             // check for duplicate message in inbox
@@ -84,7 +137,41 @@ export class NotificationsService {
 
           channel.ack(message);
         } catch (error) {
-          console.error('Failed to process message:', error);
+          const currentRetryCount = Number(
+            message.properties.headers?.['x-retry-count'] ?? 0,
+          );
+
+          const nextRetryCount = currentRetryCount + 1;
+
+          if (nextRetryCount > maxRetries) {
+            channel.publish(dlx, dlxRoutingKey, message.content, {
+              ...message.properties,
+              persistent: true,
+              headers: {
+                ...(message.properties.headers ?? {}),
+                'x-retry-count': currentRetryCount,
+                'x-final-failure': true,
+              },
+            });
+
+            channel.ack(message);
+            return;
+          }
+
+          const ttl = retryDelay * nextRetryCount;
+
+          channel.publish(retryExchange, retryRoutingKey, message.content, {
+            ...message.properties,
+
+            persistent: true,
+            expiration: String(ttl),
+            headers: {
+              ...(message.properties.headers ?? {}),
+              'x-retry-count': nextRetryCount,
+            },
+          });
+
+          channel.ack(message);
         }
       },
       {

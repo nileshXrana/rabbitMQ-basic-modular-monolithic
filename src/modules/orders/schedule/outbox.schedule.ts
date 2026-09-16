@@ -15,6 +15,10 @@ export class OutboxService {
 
   @Cron('0 * * * * *') // Fires at second 0 of every minute
   async processOutbox() {
+    // env variables
+    const ordersExchange = process.env.RABBITMQ_ORDERS_EXCHANGE!;
+    const ordersRoutingKey = process.env.RABBITMQ_ORDERS_ROUTING_KEY!;
+
     const events = await this.outboxRepository.find({
       where: {
         status: OutboxStatus.PENDING,
@@ -34,12 +38,15 @@ export class OutboxService {
     for (const event of events) {
       try {
         channel.publish(
-          String(process.env.RABBITMQ_ORDERS_EXCHANGE),
-          String(process.env.RABBITMQ_ORDERS_ROUTING_KEY),
+          ordersExchange,
+          ordersRoutingKey,
           Buffer.from(JSON.stringify(event.payload)),
           {
             persistent: true,
             messageId: event.id,
+            headers: {
+              'x-retry-count': 0,
+            },
           },
         );
 
