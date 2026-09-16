@@ -9,11 +9,7 @@ RUN npm ci
 
 COPY . .
 
-# RUN chmod +x docker/entrypoint.sh
-
 EXPOSE 8000
-
-# ENTRYPOINT ["./docker/entrypoint.sh"]
 
 CMD ["npm", "run", "start:dev"]
 
