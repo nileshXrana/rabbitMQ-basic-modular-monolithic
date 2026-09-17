@@ -23,6 +23,7 @@ export class RMQConsumer {
     const dlq = process.env.RABBITMQ_DLQ!;
     const retryDelay = Number(process.env.RABBITMQ_RETRY_DELAY!);
     const maxRetries = Number(process.env.RABBITMQ_MAX_RETRIES!);
+    const internalRetries = Number(process.env.RABBITMQ_INTERNAL_RETRIES!);
 
     const channel = this.rabbitMQService.getChannel();
 
@@ -99,13 +100,22 @@ export class RMQConsumer {
             return;
           }
 
-          throw new Error('custom error for testing !.');
+          for (let i = 0; i < internalRetries; i++) {
+            try {
+              throw new Error('custom error for testing !.');
+              //   const order = JSON.parse(message.content.toString());
+              //   await this.notificationsService.createNotification(
+              //     messageId,
+              //     order,
+              //   );
+              //   channel.ack(message);
+              //   return;
+            } catch (error) {
+              console.error(`Error in internal retry ${i}:`, error);
+            }
+          }
 
-          //   const order = JSON.parse(message.content.toString());
-          //   await this.notificationsService.createNotification(messageId, order);
-          //   channel.ack(message);
-          
-        } catch (error) {
+          // retry mechanism
           const currentRetryCount = Number(
             message.properties.headers?.['x-retry-count'] ?? 0,
           );
@@ -144,9 +154,11 @@ export class RMQConsumer {
           });
 
           console.log(
-            `Message ${messageId} sent to retry queue with TTL ${ttl}ms. Retry count: ${nextRetryCount}. Error: ${error.message}`,
+            `Message ${messageId} sent to retry queue with TTL ${ttl}ms. Retry count: ${nextRetryCount}.`,
           );
           channel.ack(message);
+        } catch (error) {
+          console.error('Unexpected error while processing message:', error);
         }
       },
       {
