@@ -19,9 +19,7 @@ export class OutboxService {
   async processOutbox() {
     const queryRunner = this.dataSource.createQueryRunner();
 
-    const tableExists = await queryRunner.hasTable(
-      'notifications_schema.outbox',
-    );
+    const tableExists = await queryRunner.hasTable('orders_schema.outbox');
 
     if (!tableExists) {
       console.log('Outbox table does not exist yet. Skipping cron.');
@@ -37,6 +35,11 @@ export class OutboxService {
       },
       take: 100,
     });
+
+    if (events.length === 0) {
+      console.log('No pending events found in the outbox.');
+      return;
+    }
 
     await this.rmqPublisher.publishEvents(events);
   }
