@@ -37,5 +37,7 @@ export class NotificationsService {
 
       await manager.save(notification);
     });
+
+    console.log(`Notification created for order ${order.id} with message ID ${messageId}`);
   }
 }

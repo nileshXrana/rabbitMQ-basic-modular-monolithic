@@ -102,14 +102,14 @@ export class RMQConsumer {
 
           for (let i = 0; i < internalRetries; i++) {
             try {
-              throw new Error('custom error for testing !.');
-              //   const order = JSON.parse(message.content.toString());
-              //   await this.notificationsService.createNotification(
-              //     messageId,
-              //     order,
-              //   );
-              //   channel.ack(message);
-              //   return;
+            //   throw new Error('custom error for testing !.');
+                const order = JSON.parse(message.content.toString());
+                await this.notificationsService.createNotification(
+                  messageId,
+                  order,
+                );
+                channel.ack(message);
+                return;
             } catch (error) {
               console.error(`Error in internal retry ${i}:`, error);
             }
