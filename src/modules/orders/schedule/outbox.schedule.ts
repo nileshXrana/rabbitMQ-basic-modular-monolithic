@@ -3,21 +3,30 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Outbox, OutboxStatus } from '../database/entities/outbox.entity';
-import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
+import { DataSource } from 'typeorm';
+import { RMQPublisher } from '../rmq.publisher';
 
 @Injectable()
 export class OutboxService {
   constructor(
     @InjectRepository(Outbox)
     private readonly outboxRepository: Repository<Outbox>,
-    private readonly rabbitMQService: RabbitMQService,
+    private readonly dataSource: DataSource,
+    private readonly rmqPublisher: RMQPublisher,
   ) {}
 
   @Cron('0 * * * * *') // Fires at second 0 of every minute
   async processOutbox() {
-    // env variables
-    const ordersExchange = process.env.RABBITMQ_ORDERS_EXCHANGE!;
-    const ordersRoutingKey = process.env.RABBITMQ_ORDERS_ROUTING_KEY!;
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    const tableExists = await queryRunner.hasTable(
+      'notifications_schema.outbox',
+    );
+
+    if (!tableExists) {
+      console.log('Outbox table does not exist yet. Skipping cron.');
+      return;
+    }
 
     const events = await this.outboxRepository.find({
       where: {
@@ -29,35 +38,6 @@ export class OutboxService {
       take: 100,
     });
 
-    if (events.length === 0) {
-      return;
-    }
-
-    const channel = this.rabbitMQService.getConfirmChannel();
-
-    for (const event of events) {
-      try {
-        channel.publish(
-          ordersExchange,
-          ordersRoutingKey,
-          Buffer.from(JSON.stringify(event.payload)),
-          {
-            persistent: true,
-            messageId: event.id,
-            headers: {
-              'x-retry-count': 0,
-            },
-          },
-        );
-
-        await channel.waitForConfirms();
-
-        event.status = OutboxStatus.PROCESSED;
-
-        await this.outboxRepository.save(event);
-      } catch (error) {
-        console.error(`Failed to publish outbox event: ${event.id}`, error);
-      }
-    }
+    await this.rmqPublisher.publishEvents(events);
   }
 }

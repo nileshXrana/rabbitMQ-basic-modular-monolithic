@@ -6,10 +6,11 @@ import { Order } from './database/entities/order.entity';
 import { RabbitMQModule } from 'src/infrastructure/rabbitmq/rabbitmq.module';
 import { Outbox } from './database/entities/outbox.entity';
 import { OutboxService } from './schedule/outbox.schedule';
+import { RMQPublisher } from './rmq.publisher';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, Outbox]), RabbitMQModule],
+  imports: [TypeOrmModule.forFeature([Outbox, Order]), RabbitMQModule],
   controllers: [OrdersController],
-  providers: [OrdersService, OutboxService],
+  providers: [OutboxService, OrdersService, RMQPublisher],
 })
 export class OrdersModule {}

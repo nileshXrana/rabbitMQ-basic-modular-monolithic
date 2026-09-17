@@ -2,33 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './database/entities/order.entity';
-import { DataSource, Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { RabbitMQService } from 'src/infrastructure/rabbitmq/rabbitmq.service';
+import { DataSource } from 'typeorm';
 import { Outbox } from './database/entities/outbox.entity';
 
 @Injectable()
 export class OrdersService {
-  constructor(
-    private readonly dataSource: DataSource,
-    private readonly rabbitMQService: RabbitMQService,
-    @InjectRepository(Order)
-    private readonly orderRepository: Repository<Order>,
-    @InjectRepository(Outbox)
-    private readonly outboxRepository: Repository<Outbox>,
-  ) {}
-
-  // rabbitMQ exchange setup
-  async onModuleInit() {
-    const channel = this.rabbitMQService.getConfirmChannel();
-
-    // env variables
-    const ordersExchange = process.env.RABBITMQ_ORDERS_EXCHANGE!;
-
-    await channel.assertExchange(ordersExchange, 'direct', {
-      durable: true,
-    });
-  }
+  constructor(private readonly dataSource: DataSource) {}
 
   async create(createOrderDto: CreateOrderDto) {
     // save the order to the database
