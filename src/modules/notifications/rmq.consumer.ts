@@ -99,12 +99,12 @@ export class RMQConsumer {
             return;
           }
 
-          // throw new Error('custom error for testing !.');
+          throw new Error('custom error for testing !.');
 
-          const order = JSON.parse(message.content.toString());
-          await this.notificationsService.createNotification(messageId, order);
-
-          channel.ack(message);
+          //   const order = JSON.parse(message.content.toString());
+          //   await this.notificationsService.createNotification(messageId, order);
+          //   channel.ack(message);
+          
         } catch (error) {
           const currentRetryCount = Number(
             message.properties.headers?.['x-retry-count'] ?? 0,
