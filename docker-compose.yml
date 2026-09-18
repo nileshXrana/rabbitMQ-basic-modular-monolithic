@@ -1,5 +1,4 @@
 services:
-
   backend:
     build:
       context: .
@@ -7,7 +6,7 @@ services:
       target: development
 
     ports:
-      - "8000:8000"
+      - '8000:8000'
 
     volumes:
       - .:/app
@@ -29,13 +28,13 @@ services:
       - .env
 
     ports:
-      - "5433:5432"
+      - '5433:5432'
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rmq_modular_monolith"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d rmq_modular_monolith']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -47,7 +46,7 @@ services:
       - .env
 
     ports:
-      - "5050:80"
+      - '5050:80'
 
     depends_on:
       postgres:
@@ -57,14 +56,14 @@ services:
     image: rabbitmq:4-management
 
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - '5672:5672'
+      - '15672:15672'
 
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
       interval: 5s
       timeout: 5s
       retries: 5
